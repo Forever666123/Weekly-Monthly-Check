@@ -70,25 +70,49 @@ cron 只认 UTC，不跟随夏令时。悉尼标准时（AEST）= UTC+10，夏�
 
 所以：**改了 SKILL.md 要推到默认分支，下一次邮件才会按新规范发。** 改动比较大时，顺手也更新一下 trigger 里的内嵌副本（`update_trigger` 的 `prompt`）。
 
-## Connector（Gmail / 日历）
+## Connector（Gmail / 日历 / Notion）—— 已确认是坏的
 
-`create_trigger` 这个接口在本组织**不支持 `connectors` 参数**，建完必定带一条警告，说触发出来的会话拿不到 `mcp__*` 工具。
+**触发出来的会话拿不到任何 connector 工具。** 2026-09-15 08:06 实测确认。
 
-实测情况：
+`create_trigger` 这个接口在本组织**不支持 `connectors` 参数**（从一个本身握着 Gmail、
+日历、Notion 的会话里调用，照样被拒——是组织策略，不是权限不够），建完必定带警告。
 
-- **Gmail** —— 已验证可用（2026-09-14 在同一环境开新会话成功发信；周检查 / 月检查也是同样条件建的）。
-- **Google Calendar** —— 每日简报新引入的依赖。见下面「待验证」。
+### 实测记录（2026-09-15，每日简报首跑）
 
-万一某天没收到邮件，第一件事是去 claude.ai 的 Routines 里确认任务上挂着 Gmail 和 Google Calendar。
+| | |
+| --- | --- |
+| 触发 | 22:06:18 UTC = 08:06 悉尼，准点 |
+| 会话 | `session_01QcuSjkFGhSquQEgeRkrPY2` |
+| 结果 | `last_run` = **SUCCEEDED**，跑了 89 秒，输出约 7.9k token |
+| 邮件 | **没发出来** |
 
-`daily-report/SKILL.md` 第 5 节写了降级规则：读不到日历/收件箱时，那一节写「⚠ 读不到（工具不可用）」而**不是**「无」，邮件照发。
-「无」= 查过了确实没有；「读不到」= 根本没查成 —— 这两个必须能分得清，否则会以为今天真没事。
+简报本身是写出来了（7.9k 输出 token），但发不出去 —— 正是 SKILL.md 第 5 节
+「没有 `send_message` 就把简报输出到会话里结束」的行为。
+
+> **`last_run` = SUCCEEDED 不等于邮件发出去了。** 它只说明那个会话跑完没报错。
+> 判断有没有成功，看收件箱，不要看 last_run。
+
+### 之前那条「Gmail 已验证」是错的
+
+旧 README 写过「这个环境的新会话是拿得到 Gmail 的」，依据是 2026-09-14 **手动开的一个新会话**
+成功发了自检邮件。手动开的会话和定时触发出来的会话**不是一回事** —— 前者带 connector，后者不带。
+
+### ⚠️ 周检查 / 月检查大概率也是坏的
+
+它们和每日简报是同样条件建的，所以多半也拿不到 Gmail。之所以没人发现，是因为它们
+**到现在一封都还没真发过**：周检查 10/04 才开始，月检查 11/01 才开始，在那之前触发了也
+按规范直接结束。等 10/04 那天没收到邮件才发现就晚了。
+
+### 修法：去 claude.ai 的 Routines 界面挂一次
+
+connector 是**存在 Routine 上**的，挂一次之后每次触发都带着，不用每天挂。
+三条任务都要挂（daily / weekly / monthly），建议一次把 Gmail + Google Calendar + Notion 都挂上。
 
 ## 待验证
 
-- [ ] 触发出来的会话能不能拿到 **Google Calendar**（`mcp__Google_Calendar__list_events`）。
-      首跑 2026-09-15 08:0x。收到的简报里如果时间线写着「⚠ 日历读不到」，就是拿不到 ——
-      那就得去 claude.ai 的 Routines UI 手工把 Google Calendar 挂到这条任务上。
+- [x] ~~触发出来的会话能不能拿到 connector~~ —— **拿不到**，2026-09-15 08:06 实测确认，见上。
+- [ ] 去 Routines 界面给三条任务挂上 Gmail + Google Calendar（+ Notion）。挂完第二天早上确认收到邮件。
+- [ ] 挂完之后回来把上面「周检查 / 月检查大概率也是坏的」那段改掉。
 - [ ] Taste of Research / Career Accelerator 暑期批的截止日（官方来源）。
       查 `tor.eng.unsw.edu.au` 或问 `Scholarships@eng.unsw.edu.au`。查到了填进「固定信息」的日期表。
 
